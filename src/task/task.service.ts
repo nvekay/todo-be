@@ -1,8 +1,9 @@
+import { TaskEntity } from 'src/task/task.entity';
 import { CreateTaskDto, UpdateTaskDto } from './task.dto';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { TaskEntity } from './task.entity';
+import { TaskStatus } from './task.interface';
 
 @Injectable()
 export class TaskService {
@@ -11,8 +12,34 @@ export class TaskService {
     private readonly taskRepository: Repository<TaskEntity>
   ) {}
 
-  findAll() {
-    return this.taskRepository.find();
+  async findAll(
+    param: TaskStatus = TaskStatus.All,
+    page: number = 1,
+    limit: number = 12
+  ) {
+    const filterWhere =
+      param !== TaskStatus.All
+        ? {
+            completed: param === TaskStatus.Completed,
+          }
+        : {};
+
+    const [tasks, count]: [TaskEntity[], number] =
+      await this.taskRepository.findAndCount({
+        where: {
+          ...filterWhere,
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+
+    return {
+      count,
+      tasks,
+    };
   }
 
   findById(id: string) {
@@ -25,18 +52,21 @@ export class TaskService {
   }
 
   async createTask(dto: CreateTaskDto) {
-    const newTask = this.taskRepository.create(dto);
-    await this.taskRepository.save(newTask);
-    return newTask;
+    try {
+      const newTask = await this.taskRepository.save(dto);
+      return newTask;
+    } catch (e) {
+      throw new BadRequestException('Task with this name already exist');
+    }
   }
 
   async updateTask(id: string, dto: UpdateTaskDto) {
-    await this.taskRepository.update(id, dto);
-    return this.taskRepository.findOne({
-      where: {
-        id,
-      },
-    });
+    try {
+      const updatedTask = await this.taskRepository.save({ ...dto, id });
+      return updatedTask;
+    } catch (e) {
+      throw new BadRequestException('Task with this name already exist');
+    }
   }
 
   async deleteTask(id: string) {

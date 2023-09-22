@@ -9,9 +9,12 @@ import {
   Controller,
   Patch,
   HttpException,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { CreateTaskDto, UpdateTaskDto } from './task.dto';
 import { TaskService } from './task.service';
+import { TaskStatus } from './task.interface';
 
 @Controller('task')
 export class TaskController {
@@ -19,8 +22,12 @@ export class TaskController {
 
   @UsePipes(new ValidationPipe())
   @Get()
-  findAll() {
-    const allTask = this.taskService.findAll();
+  findAll(
+    @Query('status') status: TaskStatus,
+    @Query('limit') limit: number,
+    @Query('page') page: number
+  ) {
+    const allTask = this.taskService.findAll(status, page, limit);
     return allTask;
   }
 
